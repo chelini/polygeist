@@ -585,7 +585,6 @@ MLIRScanner::EmitClangBuiltinCallExpr(clang::CallExpr *expr) {
 }
 
 ValueCategory MLIRScanner::VisitCallExpr(clang::CallExpr *expr) {
-
   auto loc = getMLIRLocation(expr->getExprLoc());
   /*
   if (auto ic = dyn_cast<ImplicitCastExpr>(expr->getCallee()))

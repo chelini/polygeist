@@ -1,0 +1,48 @@
+// RUN: linalg-plugin-opt %s --show-ast | FileCheck %s
+
+// CHECK: (def
+// CHECK-NEXT:  (ident sum2)
+// CHECK-NEXT:  (list
+// CHECK-NEXT:    (param
+// CHECK-NEXT:      (ident x)
+// CHECK-NEXT:      (tensor_type
+// CHECK-NEXT:        (float32)
+// CHECK-NEXT:        (list (ident N))))
+// CHECK-NEXT:    (param
+// CHECK-NEXT:      (ident y)
+// CHECK-NEXT:      (tensor_type
+// CHECK-NEXT:        (float32)
+// CHECK-NEXT:        (list (ident N)))))
+// CHECK-NEXT:  (list
+// CHECK-NEXT:    (param
+// CHECK-NEXT:      (ident o)
+// CHECK-NEXT:      (tensor_type
+// CHECK-NEXT:        (float32)
+// CHECK-NEXT:        (list (ident N)))))
+// CHECK-NEXT:  (list
+// CHECK-NEXT:    (comprehension
+// CHECK-NEXT:      (ident o)
+// CHECK-NEXT:      (list (ident i))
+// CHECK-NEXT:      (=)
+// CHECK-NEXT:      (*
+// CHECK-NEXT:        (apply
+// CHECK-NEXT:          (ident x)
+// CHECK-NEXT:          (list (ident i)))
+// CHECK-NEXT:        (apply
+// CHECK-NEXT:          (ident y)
+// CHECK-NEXT:          (list (ident i))))
+// CHECK-NEXT:      (list
+// CHECK-NEXT:        (range_constraint
+// CHECK-NEXT:          (ident i)
+// CHECK-NEXT:          (const 0 (int32))
+// CHECK-NEXT:          (ident N)))
+// CHECK-NEXT:      (option)
+// CHECK-NEXT:      (list))))
+
+
+__start_tc
+
+def sum2(float32(N) x, float32(N) y) -> (float32(N) o)
+{
+  o(i) = x(i) * y(i) where i in 0:N
+}

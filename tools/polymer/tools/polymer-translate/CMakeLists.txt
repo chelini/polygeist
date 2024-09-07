@@ -3,8 +3,6 @@ set(LLVM_LINK_COMPONENTS
   Support
 )
 
-#get_property(translation_libs GLOBAL PROPERTY MLIR_TRANSLATION_LIBS)
-
 add_llvm_tool(polymer-translate
   polymer-translate.cc
 )

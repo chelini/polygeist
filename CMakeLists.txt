@@ -9,6 +9,8 @@ set(POLYGEIST_ENABLE_POLYMER 0 CACHE BOOL "Enable Polymer")
 set(POLYGEIST_POLYMER_ENABLE_ISL 0 CACHE BOOL "Enable Polymer isl")
 set(POLYGEIST_POLYMER_ENABLE_PLUTO 0 CACHE BOOL "Enable Polymer pluto")
 
+set(POLYGEIST_ENABLE_LINALG_PLUGIN 0 CACHE BOOL "Enable linalg plugin")
+
 set(POLYMER_DEP_DIR "" CACHE STRING "Pluto build root directory")
 
 if ("${POLYMER_DEP_DIR}" STREQUAL "")

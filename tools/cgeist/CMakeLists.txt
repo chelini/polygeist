@@ -29,7 +29,7 @@ add_clang_executable(cgeist
   Lib/utils.cc
   Lib/IfScope.cc
   Lib/TypeUtils.cc
-  Lib/CGCall.cc 
+  Lib/CGCall.cc
 )
 if(POLYGEIST_ENABLE_CUDA)
   target_compile_definitions(cgeist
@@ -68,6 +68,18 @@ if(POLYGEIST_ENABLE_POLYMER)
   )
 endif()
 
+if(POLYGEIST_ENABLE_LINALG_PLUGIN)
+  target_include_directories(cgeist PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/../linalg-plugin/include"
+  )
+  target_link_libraries(cgeist PRIVATE
+    LinalgPlugin
+  )
+  target_compile_definitions(cgeist
+    PRIVATE
+    POLYGEIST_ENABLE_LINALG_PLUGIN=1
+  )
+endif()
 
 target_compile_definitions(cgeist PUBLIC -DLLVM_OBJ_ROOT="${LLVM_BINARY_DIR}")
 set(CGEIST_LIBS
@@ -78,6 +90,12 @@ if(POLYGEIST_ENABLE_POLYMER)
         list(APPEND CGEIST_LIBS
                 PolymerTransforms)
 endif()
+
+if(POLYGEIST_ENABLE_LINALG_PLUGIN)
+        list(APPEND CGEIST_LIBS
+                LinalgPlugin)
+endif()
+
 list(APPEND CGEIST_LIBS
   MLIRPolygeist
 

@@ -12,7 +12,9 @@
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/DLTI/DLTI.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
+#include "mlir/Support/FileUtilities.h"
 #include "mlir/Target/LLVMIR/Import.h"
+#include "mlirGen.h"
 #include "utils.h"
 #include "clang/AST/Attr.h"
 #include "clang/AST/Decl.h"
@@ -36,7 +38,9 @@
 #include "clang/Parse/Parser.h"
 #include "clang/Sema/Sema.h"
 #include "clang/Sema/SemaDiagnostic.h"
+#include "llvm/ADT/ScopedHashTable.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/YAMLTraits.h"
 #include "llvm/Support/raw_ostream.h"
 
 using namespace std;
@@ -212,6 +216,23 @@ mlir::Attribute wrapIntegerMemorySpace(unsigned memorySpace, MLIRContext *ctx) {
   return mlir::IntegerAttr::get(mlir::IntegerType::get(ctx, 64), memorySpace);
 }
 
+using llvm::yaml::MappingTraits;
+using llvm::yaml::Output;
+
+namespace llvm {
+namespace yaml {
+
+using namespace linalg_plugin;
+template <> struct MappingTraits<LinalgPlugin> {
+  static void mapping(IO &io, LinalgPlugin &info) {
+    io.mapRequired("funcName", info.funcName);
+    io.mapRequired("body", info.body);
+  }
+};
+
+} // namespace yaml
+} // namespace llvm
+
 MLIRScanner::MLIRScanner(MLIRASTConsumer &Glob,
                          mlir::OwningOpRef<mlir::ModuleOp> &module,
                          LowerToInfo &LTInfo)
@@ -228,6 +249,36 @@ void MLIRScanner::init(mlir::func::FuncOp function, const FunctionDecl *fd) {
   }
 
   setEntryAndAllocBlock(function.addEntryBlock());
+
+  // check for plugin.
+  // XXX: find a way to avoid writing to file.
+  std::string errorMessage;
+  std::unique_ptr<llvm::MemoryBuffer> file =
+      mlir::openInputFile("linalg.plugin", &errorMessage);
+  if (file) {
+    using llvm::yaml::Input;
+    Input yin(file->getBuffer());
+    linalg_plugin::LinalgPlugin plugin;
+    yin >> plugin;
+    if (yin.error())
+      assert(false && "error while parsing");
+
+    std::string c = "{" + plugin.body + "}";
+    lang::Parser parser(c);
+    std::vector<lang::TreeRef> comps = parser.parseStmts();
+    llvm::ScopedHashTable<llvm::StringRef, mlir::Value> operandsMap;
+    for (lang::TreeRef comp : comps) {
+      llvm::ScopedHashTableScope<llvm::StringRef, mlir::Value> scope(
+          operandsMap);
+      unsigned i = 0;
+      for (auto param : fd->parameters())
+        if (auto varDecl = dyn_cast<ParmVarDecl>(param))
+          operandsMap.insert(varDecl->getName(), function.getArgument(i++));
+      teckyl::MLIRGenImpl generator(function.getContext(), builder,
+                                    operandsMap);
+      (void)generator.buildComprehension(lang::Comprehension(comp));
+    }
+  }
 
   unsigned i = 0;
   if (auto CM = dyn_cast<CXXMethodDecl>(fd)) {

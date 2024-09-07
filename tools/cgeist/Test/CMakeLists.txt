@@ -9,7 +9,7 @@ configure_lit_site_cfg(
 )
 
 list(APPEND MLIR_CLANG_TEST_DEPS
-  llvm-config 
+  llvm-config
   FileCheck count not
   cgeist
   split-file
@@ -17,12 +17,12 @@ list(APPEND MLIR_CLANG_TEST_DEPS
   )
 
 add_lit_testsuite(check-cgeist "Running the clang-to-mlir regression tests"
-  ${CMAKE_CURRENT_BINARY_DIR} 
+  ${CMAKE_CURRENT_BINARY_DIR}
   DEPENDS ${MLIR_CLANG_TEST_DEPS}
   )
 
 add_lit_testsuite(check-cgeist-single "Running the clang-to-mlir regression tests"
-  ${CMAKE_CURRENT_BINARY_DIR} 
+  ${CMAKE_CURRENT_BINARY_DIR}
   DEPENDS ${MLIR_CLANG_TEST_DEPS}
   ARGS -j 1
   )
