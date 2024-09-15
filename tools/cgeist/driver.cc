@@ -559,6 +559,7 @@ int main(int argc, char **argv) {
   context.getOrLoadDialect<mlir::linalg::LinalgDialect>();
   context.getOrLoadDialect<mlir::polygeist::PolygeistDialect>();
   context.getOrLoadDialect<mlir::cf::ControlFlowDialect>();
+  context.getOrLoadDialect<mlir::bufferization::BufferizationDialect>();
 
   LLVM::LLVMFunctionType::attachInterface<MemRefInsider>(context);
   LLVM::LLVMPointerType::attachInterface<MemRefInsider>(context);

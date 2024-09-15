@@ -266,16 +266,20 @@ void MLIRScanner::init(mlir::func::FuncOp function, const FunctionDecl *fd) {
     std::string c = "{" + plugin.body + "}";
     lang::Parser parser(c);
     std::vector<lang::TreeRef> comps = parser.parseStmts();
+    std::pair<mlir::Value, mlir::Value> resultComp;
+    llvm::MapVector<llvm::StringRef, mlir::Value> operandsMap;
+    unsigned i = 0;
+    for (auto param : fd->parameters())
+      if (auto varDecl = dyn_cast<ParmVarDecl>(param))
+        operandsMap[varDecl->getName()] = function.getArgument(i++);
+
     for (lang::TreeRef comp : comps) {
-      llvm::MapVector<llvm::StringRef, mlir::Value> operandsMap;
-      unsigned i = 0;
-      for (auto param : fd->parameters())
-        if (auto varDecl = dyn_cast<ParmVarDecl>(param))
-          operandsMap[varDecl->getName()] = function.getArgument(i++);
       teckyl::MLIRGenImpl generator(function.getContext(), builder,
                                     operandsMap);
-      (void)generator.buildComprehension(lang::Comprehension(comp));
+      resultComp = generator.buildComprehension(lang::Comprehension(comp));
     }
+    builder.create<mlir::bufferization::MaterializeInDestinationOp>(
+        builder.getUnknownLoc(), resultComp.first, resultComp.second);
   }
 
   unsigned i = 0;
