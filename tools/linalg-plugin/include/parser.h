@@ -348,6 +348,35 @@ struct Parser {
     auto stmts_list = List::create(r, std::move(stmts));
     return Def::create(name->range(), name, paramlist, retlist, stmts_list);
   }
+  TreeRef parseTactic() {
+    L.expect(TK_TAC);
+    auto name = parseIdent();
+    auto paramlist =
+        parseList('(', ',', ')', [&](int i) { return parseParam(); });
+    L.expect(TK_ARROW);
+    auto retlist =
+        parseList('(', ',', ')', [&](int i) { return parseParam(); });
+    L.expect('{');
+    auto r = L.cur().range;
+    L.expect(TK_PATTERN);
+    L.expect('{');
+    TreeList stmts;
+    while (!L.nextIf('}')) {
+      stmts.push_back(parseStmt());
+    }
+    auto rr = L.cur().range;
+    L.expect(TK_REPLACEMENT);
+    L.expect('{');
+    TreeList stmts_repl;
+    while (!L.nextIf('}')) {
+      stmts_repl.push_back(parseStmt());
+    }
+    L.expect('}');
+    auto stmts_list = List::create(r, std::move(stmts));
+    auto stmts_list_repl = List::create(rr, std::move(stmts_repl));
+    return Tac::create(name->range(), name, paramlist, retlist, stmts_list,
+                       stmts_list_repl);
+  }
 
   Lexer L;
 

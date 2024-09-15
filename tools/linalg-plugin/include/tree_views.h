@@ -345,6 +345,20 @@ struct Def : public TreeView {
   }
 };
 
+struct Tac : public TreeView {
+  explicit Tac(const TreeRef &tree) : TreeView(tree) {
+    tree_->expect(TK_TAC, 5);
+  }
+  Ident name() { return Ident(subtree(0)); }
+  static TreeRef create(const SourceRange &range, TreeRef name,
+                        TreeRef paramlist, TreeRef retlist,
+                        TreeRef stmts_list_pattern, TreeRef stmts_list_repl) {
+    return Compound::create(
+        TK_TAC, range,
+        {name, paramlist, retlist, stmts_list_pattern, stmts_list_repl});
+  }
+};
+
 struct Select : public TreeView {
   explicit Select(const TreeRef &tree) : TreeView(tree) {
     tree_->expect('.', 2);

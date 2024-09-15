@@ -1,0 +1,30 @@
+// RUN: linalg-plugin-opt %s --show-ast | FileCheck %s
+
+__start_tc
+
+def_t dummy(float32(M, N) In) -> (float32(N, M) Temp, float32(M, N) C) {
+  pattern {} replacement {}
+}
+
+__end_tc
+
+// CHECK:  dummy
+// CHECK-NEXT:  (list
+// CHECK-NEXT:    (param
+// CHECK-NEXT:      (ident In)
+// CHECK-NEXT:      (tensor_type
+// CHECK-NEXT:        (float32)
+// CHECK-NEXT:        (list (ident M) (ident N)))))
+// CHECK-NEXT:  (list
+// CHECK-NEXT:    (param
+// CHECK-NEXT:      (ident Temp)
+// CHECK-NEXT:      (tensor_type
+// CHECK-NEXT:        (float32)
+// CHECK-NEXT:        (list (ident N) (ident M))))
+// CHECK-NEXT:    (param
+// CHECK-NEXT:      (ident C)
+// CHECK-NEXT:      (tensor_type
+// CHECK-NEXT:       (float32)
+// CHECK-NEXT:        (list (ident M) (ident N)))))
+// CHECK-NEXT:  (list)
+// CHECK-NEXT:  (list))

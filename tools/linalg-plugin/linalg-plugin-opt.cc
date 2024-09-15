@@ -45,16 +45,24 @@ namespace {
 
 // Parses a string with TCs and returns a map with one entry for each
 // kernel, composed of the kernel's name and its AST.
-std::map<std::string, lang::Def> parse(const std::string tc,
-                                       const std::string filename) {
+std::map<std::string, lang::TreeRef> parse(const std::string tc,
+                                           const std::string filename) {
   lang::Parser parser(tc, filename);
-  std::map<std::string, lang::Def> parsed;
+  std::map<std::string, lang::TreeRef> parsed;
 
   while (parser.L.cur().kind != lang::TK_EOF) {
-    auto t = parser.parseFunction();
-    auto def = lang::Def(t);
-    auto name = def.name().name();
-    parsed.emplace(std::make_pair(name, def));
+    if (parser.L.cur().kind == lang::TK_DEF) {
+      auto t = parser.parseFunction();
+      auto def = lang::Def(t);
+      auto name = def.name().name();
+      parsed.emplace(std::make_pair(name, def));
+    }
+    if (parser.L.cur().kind == lang::TK_TAC) {
+      auto t = parser.parseTactic();
+      auto def = lang::Tac(t);
+      auto name = def.name().name();
+      parsed.emplace(std::make_pair(name, def));
+    }
   }
 
   return parsed;
@@ -84,12 +92,12 @@ std::string readFile(const std::string filename) {
 }
 
 // Dumps the AST for a set of kernels to stdout.
-void dumpAST(const std::map<std::string, lang::Def> &tcs) {
+void dumpAST(const std::map<std::string, lang::TreeRef> &tcs) {
   for (const auto &res : tcs)
     std::cout << res.second << std::endl;
 }
 
-void dumpMlir(const std::map<std::string, lang::Def> &tcs) {
+void dumpMlir(const std::map<std::string, lang::TreeRef> &tcs) {
   mlir::DialectRegistry registry;
   mlir::MLIRContext context(registry);
   // register linalg and tensor.
@@ -136,7 +144,7 @@ int main(int argc, char **argv) {
   llvm::cl::ParseCommandLineOptions(argc, argv);
 
   std::string source = readFile(inputFileName);
-  std::map<std::string, lang::Def> tcs;
+  std::map<std::string, lang::TreeRef> tcs;
   tcs = parse(source, inputFileName);
 
   if (showAst) {

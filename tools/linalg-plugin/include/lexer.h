@@ -97,7 +97,10 @@ namespace lang {
   _(TK_AND, "and", "&&")                                                       \
   _(TK_OR, "or", "||")                                                         \
   _(TK_LET, "let", "")                                                         \
-  _(TK_EXISTS, "exists", "exists")
+  _(TK_EXISTS, "exists", "exists")                                             \
+  _(TK_PATTERN, "pattern", "pattern")                                          \
+  _(TK_REPLACEMENT, "replacement", "replacement")                              \
+  _(TK_TAC, "def_t", "def_t")
 
 static const char *valid_single_char_tokens = "+-*/()[]?:,={}><!%";
 
