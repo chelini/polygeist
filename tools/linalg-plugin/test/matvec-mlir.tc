@@ -15,12 +15,15 @@ __end_tc
 
 // CHECK-LABEL: matvec
 // CHECK-SAME: %[[ARG0:.+]]: memref<?xf32>, %[[ARG1:.+]]: memref<?x?xf32>, %[[ARG2:.+]]: memref<?xf32>
+// CHECK: %[[ARG2_T:.+]] = bufferization.to_tensor %[[ARG2]] : memref<?xf32>
 // CHECK: %[[CST:.+]] = arith.constant 0.000000e+00 : f32
-// CHECK: linalg.fill ins(%[[CST]] : f32) outs(%[[ARG2]] : memref<?xf32>)
-// CHECK: linalg.generic
+// CHECK: %[[FILL:.+]] = linalg.fill ins(%[[CST]] : f32) outs(%[[ARG2_T]] : tensor<?xf32>) -> tensor<?xf32>
+// CHECK: %[[ARG1_T:.+]] = bufferization.to_tensor %[[ARG1]] : memref<?x?xf32>
+// CHECK: %[[ARG0_T:.+]] = bufferization.to_tensor %[[ARG0]] : memref<?xf32>
+// CHECK: %[[MATVEC:.+]] = linalg.generic
 // CHECK-SAME: indexing_maps = [#[[MAP]], #[[MAP1]], #[[MAP2]]]
 // CHECK-SAME: iterator_types = ["parallel", "reduction"]
-// CHECK-SAME: ins(%[[ARG1]], %[[ARG0]] : memref<?x?xf32>, memref<?xf32>) outs(%[[ARG2]] : memref<?xf32>)
+// CHECK-SAME: ins(%[[ARG1_T]], %[[ARG0_T]] : tensor<?x?xf32>, tensor<?xf32>) outs(%[[FILL]] : tensor<?xf32>)
 // CHECK: ^bb0(%[[IN:.+]]: f32, %[[IN0:.+]]: f32, %[[OUT:.+]]: f32):
 // CHECK: %[[MUL:.+]] = arith.mulf %[[IN]], %[[IN0]] : f32
 // CHECK: %[[ADD:.+]] = arith.addf %[[MUL]], %[[OUT]] : f32

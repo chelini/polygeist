@@ -23,6 +23,7 @@ add_mlir_library(LinalgPlugin
   LINK_LIBS PUBLIC
 
   MLIRArithDialect
+  MLIRBufferizationDialect
   MLIRIR
   MLIRFuncDialect
   MLIRLinalgDialect

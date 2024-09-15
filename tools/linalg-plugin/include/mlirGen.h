@@ -3,7 +3,7 @@
 
 #include "mlir/IR/Builders.h"
 #include "parser.h"
-#include "llvm/ADT/ScopedHashTable.h"
+#include "llvm/ADT/MapVector.h"
 #include <string>
 #include <unordered_map>
 
@@ -93,7 +93,7 @@ class MLIRGenImpl {
 public:
   MLIRGenImpl() = delete;
   MLIRGenImpl(mlir::MLIRContext *context, mlir::OpBuilder &builder,
-              llvm::ScopedHashTable<llvm::StringRef, mlir::Value> &symbolTable)
+              llvm::MapVector<llvm::StringRef, mlir::Value> &symbolTable)
       : context_(context), builder_(builder), symbolTable_(symbolTable) {}
 
   // Build a funcOp for a definition 'def'
@@ -101,12 +101,14 @@ public:
                                    const lang::Def &def);
 
   // Build the MLIR representation of a single comprehension.
-  mlir::Value buildComprehension(const lang::Comprehension &c);
+  // Result: [result.generic, whereToStore]
+  std::pair<mlir::Value, mlir::Value>
+  buildComprehension(const lang::Comprehension &c);
 
 private:
   mlir::MLIRContext *context_;
   mlir::OpBuilder &builder_;
-  llvm::ScopedHashTable<llvm::StringRef, mlir::Value> &symbolTable_;
+  llvm::MapVector<llvm::StringRef, mlir::Value> &symbolTable_;
 
   // Get MLIR type from 'kind'
   mlir::Type getScalarType(int kind);
@@ -119,24 +121,25 @@ private:
   collectOutputRanks(const lang::Def &def);
 
   // Build linalg.fill for a given tensor.
-  void buildTensorInitialization(mlir::Value tensor, NeutralElement elem);
+  void buildTensorInitialization(const std::string tensorName,
+                                 mlir::Value tensor, NeutralElement elem);
 
   // Builds the core of a comprehension (e.g., just the actual
   // compitation without the initialization broadcasting the neutral
   // element for default-initialized reductions) with affine
   // accesses. The check for affine accesses must be performed prior
   // to the call.
-  mlir::Operation *buildLinalgReductionCore(
+  mlir::Value buildLinalgReductionCore(
       const lang::Comprehension &c, mlir::Value tensor,
       const std::unordered_map<std::string, IteratorKind> &iterators,
       const llvm::SmallVectorImpl<std::string> &iteratorsSeq,
       mlir::Location location);
 };
 
-mlir::func::FuncOp buildMLIRFunction(
-    mlir::MLIRContext *context, mlir::OpBuilder &builder,
-    llvm::ScopedHashTable<llvm::StringRef, mlir::Value> &symbolTable,
-    const std::string name, const lang::Def &tc);
+mlir::func::FuncOp
+buildMLIRFunction(mlir::MLIRContext *context, mlir::OpBuilder &builder,
+                  llvm::MapVector<llvm::StringRef, mlir::Value> &symbolTable,
+                  const std::string name, const lang::Def &tc);
 
 } // namespace teckyl
 

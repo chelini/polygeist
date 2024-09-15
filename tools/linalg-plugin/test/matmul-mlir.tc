@@ -2,7 +2,7 @@
 
 __start_tc
 
-def gemm(float32 a, float32 b, float32(N, M) A, float32(M, K) B) -> (float32(N, K) C)
+def gemm(float32 a, float32 b, float32(M, K) A, float32(K, N) B) -> (float32(M, N) C)
 {
   C(i,j) *=! b
   C(i,j) += a * A(i,k) * B(k,j)
@@ -13,21 +13,25 @@ __end_tc
 // CHECK-LABEL: gemm
 // CHECK-SAME:  %[[ARG0:.+]]: f32, %[[ARG1:.+]]: f32, %[[ARG2:.+]]: memref<?x?xf32>, %[[ARG3:.+]]: memref<?x?xf32>, 
 // CHECK-SAME:  %[[ARG4:.+]]: memref<?x?xf32>)
+// CHECK: %[[ARG4_T:.+]] = bufferization.to_tensor %[[ARG4]] : memref<?x?xf32>
 // CHECK: %[[CST:.+]] = arith.constant 1.000000e+00 : f32
-// CHECK: linalg.fill ins(%[[CST]] : f32) outs(%[[ARG4]] : memref<?x?xf32>)
-// CHECK: linalg.generic
+// CHECK: %[[FILL:.+]] = linalg.fill ins(%[[CST]] : f32) outs(%[[ARG4_T]] : tensor<?x?xf32>) -> tensor<?x?xf32>
+// CHECK: %[[INIT:.+]] = linalg.generic
 // CHECK-SAME:  indexing_maps = [#map, #map1]
 // CHECK-SAME:  iterator_types = ["parallel", "parallel"]
-// CHECK-SAME:  ins(%[[ARG1]] : f32) outs(%[[ARG4]] : memref<?x?xf32>)
+// CHECK-SAME:  ins(%[[ARG1]] : f32) outs(%[[FILL]] : tensor<?x?xf32>)
 // CHECK: ^bb0(%[[IN:.+]]: f32, %[[OUT:.+]]: f32):
 // CHECK: %[[MUL:.+]] = arith.mulf %[[IN]], %[[OUT]] : f32
 // CHECK: linalg.yield %[[MUL]] : f32
 
-// CHECK: linalg.generic
+
+// CHECK: %[[ARG2_T:.+]] = bufferization.to_tensor %[[ARG2]] : memref<?x?xf32>
+// CHECK: %[[ARG3_T:.+]] = bufferization.to_tensor %[[ARG3]] : memref<?x?xf32>
+// CHECK: %[[GEMM:.+]] = linalg.generic
 // CHECK-SAME:  indexing_maps = [#map2, #map3, #map4, #map5]
 // CHECK-SAME:  iterator_types = ["parallel", "parallel", "reduction"]
-// CHECK-SAME:  ins(%[[ARG0]], %[[ARG2]], %[[ARG3]] : f32, memref<?x?xf32>, memref<?x?xf32>) 
-// CHECK-SAME:  outs(%[[ARG4]] : memref<?x?xf32>)
+// CHECK-SAME:  ins(%[[ARG0]], %[[ARG2_T]], %[[ARG3_T]] : f32, tensor<?x?xf32>, tensor<?x?xf32>) 
+// CHECK-SAME:  outs(%[[INIT]] : tensor<?x?xf32>)
 // CHECK: ^bb0(%[[IN0:.+]]: f32, %[[IN1:.+]]: f32, %[[IN2:.+]]: f32, %[[OUT0:.+]]: f32):
 // CHECK: %[[MUL0:.+]] = arith.mulf %[[IN0]], %[[IN1]] : f32
 // CHECK: %[[MUL1:.+]] = arith.mulf %[[MUL0]], %[[IN2]] : f32

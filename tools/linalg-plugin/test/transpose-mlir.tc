@@ -1,0 +1,20 @@
+// RUN: linalg-plugin-opt %s --show-mlir | FileCheck %s
+
+__start_tc
+
+def transpose(float32(M, N) In) -> (float32(N, M) Temp, float32(M, N) C)
+{
+  Temp(j,i) = In(i,j)
+  C(i,j) = Temp(j,i)
+}
+
+__end_tc
+
+// CHECK: #[[MAP:.+]] = affine_map<(d0, d1) -> (d1, d0)>
+// CHECK-DAG: #[[MAP1:.+]] = affine_map<(d0, d1) -> (d0, d1)>
+
+// CHECK-LABEL: transpose
+// CHECK-COUNT-2: linalg.generic
+// CHECK-SAME:  indexing_maps = [#[[MAP]], #[[MAP1]]]
+// CHECK-SAME:  iterator_types = ["parallel", "parallel"]
+// CHECK-SAME:  ins(%{{.+}} : tensor<?x?xf32>) outs(%{{.+}} : tensor<?x?xf32>)

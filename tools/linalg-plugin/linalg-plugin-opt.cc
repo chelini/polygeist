@@ -96,6 +96,7 @@ void dumpMlir(const std::map<std::string, lang::Def> &tcs) {
   context.getOrLoadDialect<mlir::linalg::LinalgDialect>();
   context.getOrLoadDialect<mlir::arith::ArithDialect>();
   context.getOrLoadDialect<mlir::func::FuncDialect>();
+  context.getOrLoadDialect<mlir::bufferization::BufferizationDialect>();
 
   context.disableMultithreading();
 
@@ -112,7 +113,7 @@ void dumpMlir(const std::map<std::string, lang::Def> &tcs) {
       mlir::ModuleOp::create(builder.getUnknownLoc()));
 
   lang::Sema sema;
-  llvm::ScopedHashTable<llvm::StringRef, mlir::Value> symbolTable;
+  llvm::MapVector<llvm::StringRef, mlir::Value> symbolTable;
   for (auto &tc : tcs) {
     lang::TreeRef checked = sema.checkFunction(tc.second);
     mlir::func::FuncOp f = teckyl::buildMLIRFunction(

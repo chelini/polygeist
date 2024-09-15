@@ -51,7 +51,6 @@ config.standalone_tools_dir = os.path.join(config.plugin_obj_root, 'bin')
 
 # Tweak the PATH to include the tools dir.
 llvm_config.with_environment('PATH', config.llvm_tools_dir, append_path=True)
-llvm_config.with_environment('PATH', config.plugin_tools_dir, append_path=True)
 
 tool_dirs = [config.plugin_tools_dir]
 tools = [

@@ -2,6 +2,7 @@
 #include "mlirAffineExprGen.h"
 
 #include "mlir/Dialect/Arith/IR/Arith.h"
+#include "mlir/Dialect/Bufferization/IR/Bufferization.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
@@ -121,9 +122,9 @@ mlir::Type MLIRGenImpl::getMemRefType(const lang::TensorType &tensorType,
 // Collects the set of iterators of a comprehensions by listing all
 // identifiers and retaining only those that are not in the symbol
 // table `symTab`.
-static std::unordered_map<std::string, teckyl::IteratorKind> collectIterators(
-    const lang::Comprehension &comprehension,
-    const llvm::ScopedHashTable<llvm::StringRef, mlir::Value> &symTab) {
+static std::unordered_map<std::string, teckyl::IteratorKind>
+collectIterators(const lang::Comprehension &comprehension,
+                 const llvm::MapVector<llvm::StringRef, mlir::Value> &symTab) {
   std::unordered_map<std::string, IteratorKind> iterators;
 
   for (const lang::Ident &lhsIndex : comprehension.indices())
@@ -162,7 +163,7 @@ collectTensorAccessesSeq(const lang::TreeRef &t) {
   return res;
 }
 
-mlir::Operation *MLIRGenImpl::buildLinalgReductionCore(
+mlir::Value MLIRGenImpl::buildLinalgReductionCore(
     const lang::Comprehension &c, mlir::Value tensor,
     const std::unordered_map<std::string, IteratorKind> &iterators,
     const llvm::SmallVectorImpl<std::string> &iteratorSeq,
@@ -198,6 +199,11 @@ mlir::Operation *MLIRGenImpl::buildLinalgReductionCore(
     mlir::AffineMap map =
         mlir::AffineMap::get(codomainDim, 0, affineExprs, context_);
     mlir::Value mValue = symbolTable_.lookup(access.first);
+    if (isa<mlir::MemRefType>(mValue.getType())) {
+      mValue =
+          builder_.create<mlir::bufferization::ToTensorOp>(location, mValue);
+      symbolTable_[access.first] = mValue;
+    }
     inputOperands.push_back(mValue);
     tensorToMap.insert({access.first, map});
     tensorIds.push_back(access.first);
@@ -231,8 +237,8 @@ mlir::Operation *MLIRGenImpl::buildLinalgReductionCore(
 
   // TODO: do not push tensor output if dealing with =
   mlir::Operation *genericOp = builder_.create<mlir::linalg::GenericOp>(
-      builder_.getUnknownLoc(), inputOperands, outputOperands, indexingMaps,
-      iteratorTypes,
+      builder_.getUnknownLoc(), tensor.getType(), inputOperands, outputOperands,
+      indexingMaps, iteratorTypes,
       [&](mlir::OpBuilder &nestedBuilder, mlir::Location nestedLoc,
           mlir::ValueRange args) {
         assert(tensorIds.size() == args.size() &&
@@ -275,10 +281,12 @@ mlir::Operation *MLIRGenImpl::buildLinalgReductionCore(
 
         nestedBuilder.create<mlir::linalg::YieldOp>(nestedLoc, result);
       });
-  return genericOp;
+  assert(genericOp->getNumResults() == 1);
+  return genericOp->getResults()[0];
 }
 
-void MLIRGenImpl::buildTensorInitialization(mlir::Value tensor,
+void MLIRGenImpl::buildTensorInitialization(const std::string tensorName,
+                                            mlir::Value tensor,
                                             NeutralElement elem) {
   mlir::Type type = tensor.getType();
   assert(type.isa<mlir::ShapedType>() && "expect a shaped type");
@@ -303,13 +311,14 @@ void MLIRGenImpl::buildTensorInitialization(mlir::Value tensor,
       constant = builder_.create<mlir::arith::ConstantOp>(
           builder_.getUnknownLoc(), scalarType, builder_.getI32IntegerAttr(1));
   }
-  builder_.create<mlir::linalg::FillOp>(builder_.getUnknownLoc(), constant,
-                                        tensor);
+  auto fillRes = builder_.create<mlir::linalg::FillOp>(builder_.getUnknownLoc(),
+                                                       constant, tensor);
+  llvm::errs() << "tensorName: " << tensorName << "\n";
+  symbolTable_[tensorName] = fillRes.getResult(0);
 }
 
-mlir::Value MLIRGenImpl::buildComprehension(const lang::Comprehension &c) {
-  llvm::ScopedHashTableScope<llvm::StringRef, mlir::Value> scope(symbolTable_);
-
+std::pair<mlir::Value, mlir::Value>
+MLIRGenImpl::buildComprehension(const lang::Comprehension &c) {
   std::unordered_map<std::string, IteratorKind> iterators =
       collectIterators(c, symbolTable_);
   std::unordered_set<std::string> iteratorSet;
@@ -330,25 +339,30 @@ mlir::Value MLIRGenImpl::buildComprehension(const lang::Comprehension &c) {
   const std::string outTensorName = c.ident().name();
   mlir::Value outVal = symbolTable_.lookup(outTensorName);
   assert(outVal && "outMemRefVal not founded in symbolTable");
+  if (isa<mlir::MemRefType>(outVal.getType())) {
+    outVal = builder_.create<mlir::bufferization::ToTensorOp>(
+        builder_.getUnknownLoc(), outVal);
+    symbolTable_[outTensorName] = outVal;
+  }
 
   if (c.assignment()->kind() == lang::TK_PLUS_EQ_B)
-    buildTensorInitialization(outVal, NeutralElement::Zero);
+    buildTensorInitialization(outTensorName, outVal, NeutralElement::Zero);
   else if (c.assignment()->kind() == lang::TK_TIMES_EQ_B)
-    buildTensorInitialization(outVal, NeutralElement::One);
+    buildTensorInitialization(outTensorName, outVal, NeutralElement::One);
   else if (c.assignment()->kind() == lang::TK_MAX_EQ_B ||
            c.assignment()->kind() == lang::TK_MIN_EQ_B) {
     llvm_unreachable("Unsupported reduction");
   }
 
-  (void)buildLinalgReductionCore(c, outVal, iterators, iteratorSeq,
-                                 builder_.getUnknownLoc());
-
-  return outVal;
+  outVal = symbolTable_.lookup(outTensorName);
+  mlir::Value resultComp = buildLinalgReductionCore(
+      c, outVal, iterators, iteratorSeq, builder_.getUnknownLoc());
+  symbolTable_[outTensorName] = resultComp;
+  return std::make_pair(resultComp, outVal);
 }
 
 mlir::func::FuncOp MLIRGenImpl::buildFunction(const std::string name,
                                               const lang::Def &def) {
-  llvm::ScopedHashTableScope<llvm::StringRef, mlir::Value> scope(symbolTable_);
   llvm::SmallVector<mlir::Type, 8> funcArgsTypes;
 
   for (lang::Param param : def.params()) {
@@ -383,25 +397,28 @@ mlir::func::FuncOp MLIRGenImpl::buildFunction(const std::string name,
   int i = 0;
   for (lang::Param param : def.params()) {
     mlir::BlockArgument arg = funcOp.getArgument(i++);
-    symbolTable_.insert(param.ident().name(), arg);
+    symbolTable_[param.ident().name()] = arg;
   }
   for (lang::Param param : def.returns()) {
     mlir::BlockArgument arg = funcOp.getArgument(i++);
-    symbolTable_.insert(param.ident().name(), arg);
+    symbolTable_[param.ident().name()] = arg;
   }
 
   // Build function body.
+  std::pair<mlir::Value, mlir::Value> resultComp;
   for (const lang::Comprehension &comprehension : def.statements())
-    buildComprehension(comprehension);
+    resultComp = buildComprehension(comprehension);
+  builder_.create<mlir::bufferization::MaterializeInDestinationOp>(
+      builder_.getUnknownLoc(), resultComp.first, resultComp.second);
 
   builder_.create<mlir::func::ReturnOp>(builder_.getUnknownLoc());
   return funcOp;
 }
 
-mlir::func::FuncOp buildMLIRFunction(
-    mlir::MLIRContext *context, mlir::OpBuilder &builder,
-    llvm::ScopedHashTable<llvm::StringRef, mlir::Value> &symbolTable,
-    const std::string name, const lang::Def &tc) {
+mlir::func::FuncOp
+buildMLIRFunction(mlir::MLIRContext *context, mlir::OpBuilder &builder,
+                  llvm::MapVector<llvm::StringRef, mlir::Value> &symbolTable,
+                  const std::string name, const lang::Def &tc) {
   MLIRGenImpl generator(context, builder, symbolTable);
   return generator.buildFunction(name, tc);
 }

@@ -266,14 +266,12 @@ void MLIRScanner::init(mlir::func::FuncOp function, const FunctionDecl *fd) {
     std::string c = "{" + plugin.body + "}";
     lang::Parser parser(c);
     std::vector<lang::TreeRef> comps = parser.parseStmts();
-    llvm::ScopedHashTable<llvm::StringRef, mlir::Value> operandsMap;
     for (lang::TreeRef comp : comps) {
-      llvm::ScopedHashTableScope<llvm::StringRef, mlir::Value> scope(
-          operandsMap);
+      llvm::MapVector<llvm::StringRef, mlir::Value> operandsMap;
       unsigned i = 0;
       for (auto param : fd->parameters())
         if (auto varDecl = dyn_cast<ParmVarDecl>(param))
-          operandsMap.insert(varDecl->getName(), function.getArgument(i++));
+          operandsMap[varDecl->getName()] = function.getArgument(i++);
       teckyl::MLIRGenImpl generator(function.getContext(), builder,
                                     operandsMap);
       (void)generator.buildComprehension(lang::Comprehension(comp));
