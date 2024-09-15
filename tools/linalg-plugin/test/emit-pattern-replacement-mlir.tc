@@ -1,0 +1,19 @@
+// RUN: linalg-plugin-opt %s -show-mlir | FileCheck %s
+
+__start_tc
+
+def_t canonicalizer(float32(M, N) In) -> (float32(N, M) Temp, float32(M, N) C) {
+  pattern {
+    Temp(j,i) = In(i,j)
+    C(i,j) = Temp(j,i)
+  } replacement {
+    C(i,j) = In(i,j)
+  }
+}
+
+__end_tc
+
+
+// CHECK: module {
+// CHECK-NEXT: module @transform.with_named_sequence attributes 
+// CHECK-SAME:  {transform.with_named_sequence = "transform.with_named_sequence"}

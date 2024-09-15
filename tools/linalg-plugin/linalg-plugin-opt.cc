@@ -1,3 +1,4 @@
+#include "mlir/Dialect/Transform/IR/TransformOps.h"
 #include "mlir/IR/Dialect.h"
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/Verifier.h"
@@ -45,31 +46,33 @@ namespace {
 
 // Parses a string with TCs and returns a map with one entry for each
 // kernel, composed of the kernel's name and its AST.
-std::map<std::string, lang::TreeRef> parse(const std::string tc,
-                                           const std::string filename) {
+static std::pair<std::map<std::string, lang::Def>,
+                 std::map<std::string, lang::Tac>>
+parse(const std::string tc, const std::string filename) {
   lang::Parser parser(tc, filename);
-  std::map<std::string, lang::TreeRef> parsed;
+  std::map<std::string, lang::Def> parsedDefs;
+  std::map<std::string, lang::Tac> parsedTacs;
 
   while (parser.L.cur().kind != lang::TK_EOF) {
     if (parser.L.cur().kind == lang::TK_DEF) {
       auto t = parser.parseFunction();
       auto def = lang::Def(t);
       auto name = def.name().name();
-      parsed.emplace(std::make_pair(name, def));
+      parsedDefs.emplace(std::make_pair(name, def));
     }
     if (parser.L.cur().kind == lang::TK_TAC) {
       auto t = parser.parseTactic();
       auto def = lang::Tac(t);
       auto name = def.name().name();
-      parsed.emplace(std::make_pair(name, def));
+      parsedTacs.emplace(std::make_pair(name, def));
     }
   }
 
-  return parsed;
+  return std::make_pair(parsedDefs, parsedTacs);
 }
 
 // Reads an entire file into a string.
-std::string readFile(const std::string filename) {
+static std::string readFile(const std::string filename) {
   std::ifstream ifs(filename);
 
   if (!ifs.good())
@@ -92,12 +95,16 @@ std::string readFile(const std::string filename) {
 }
 
 // Dumps the AST for a set of kernels to stdout.
-void dumpAST(const std::map<std::string, lang::TreeRef> &tcs) {
+static void dumpAST(const std::map<std::string, lang::Def> &tcs,
+                    const std::map<std::string, lang::Tac> &tacs) {
   for (const auto &res : tcs)
+    std::cout << res.second << std::endl;
+  for (const auto &res : tacs)
     std::cout << res.second << std::endl;
 }
 
-void dumpMlir(const std::map<std::string, lang::TreeRef> &tcs) {
+static void dumpMlir(const std::map<std::string, lang::Def> &tcs,
+                     const std::map<std::string, lang::Tac> &tacs) {
   mlir::DialectRegistry registry;
   mlir::MLIRContext context(registry);
   // register linalg and tensor.
@@ -105,6 +112,7 @@ void dumpMlir(const std::map<std::string, lang::TreeRef> &tcs) {
   context.getOrLoadDialect<mlir::arith::ArithDialect>();
   context.getOrLoadDialect<mlir::func::FuncDialect>();
   context.getOrLoadDialect<mlir::bufferization::BufferizationDialect>();
+  context.getOrLoadDialect<mlir::transform::TransformDialect>();
 
   context.disableMultithreading();
 
@@ -123,11 +131,27 @@ void dumpMlir(const std::map<std::string, lang::TreeRef> &tcs) {
   lang::Sema sema;
   llvm::MapVector<llvm::StringRef, mlir::Value> symbolTable;
   for (auto &tc : tcs) {
-    lang::TreeRef checked = sema.checkFunction(tc.second);
+    lang::TreeRef checked = sema.checkFunction(lang::Def(tc.second));
     mlir::func::FuncOp f = teckyl::buildMLIRFunction(
         &context, builder, symbolTable, tc.first, lang::Def(checked));
     module->push_back(f);
   }
+
+  // Build a module for the transform operations.
+  mlir::OwningOpRef<mlir::ModuleOp> moduleTransform(mlir::ModuleOp::create(
+      builder.getUnknownLoc(),
+      mlir::transform::TransformDialect::kWithNamedSequenceAttrName));
+  moduleTransform->getOperation()->setAttr(
+      mlir::transform::TransformDialect::kWithNamedSequenceAttrName,
+      builder.getStringAttr(
+          mlir::transform::TransformDialect::kWithNamedSequenceAttrName));
+  for (auto &tac : tacs) {
+    lang::TreeRef checked = sema.checkFunction(lang::Tac(tac.second));
+    mlir::transform::NamedSequenceOp tOp = teckyl::buildMLIRTactic(
+        &context, builder, tac.first, lang::Tac(checked));
+    moduleTransform->push_back(tOp);
+  }
+  module->push_back(*moduleTransform);
 
   if (mlir::failed(mlir::verify(*module))) {
     module->dump();
@@ -144,17 +168,16 @@ int main(int argc, char **argv) {
   llvm::cl::ParseCommandLineOptions(argc, argv);
 
   std::string source = readFile(inputFileName);
-  std::map<std::string, lang::TreeRef> tcs;
-  tcs = parse(source, inputFileName);
+  auto [tcs, tacs] = parse(source, inputFileName);
 
   if (showAst) {
     llvm::outs() << "Printing TC AST\n";
-    dumpAST(tcs);
+    dumpAST(tcs, tacs);
     return 0;
   }
 
   if (showMlir) {
-    dumpMlir(tcs);
+    dumpMlir(tcs, tacs);
     return 0;
   }
 

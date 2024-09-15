@@ -360,11 +360,10 @@ struct Parser {
     auto r = L.cur().range;
     L.expect(TK_PATTERN);
     L.expect('{');
-    TreeList stmts;
+    TreeList stmts_pattern;
     while (!L.nextIf('}')) {
-      stmts.push_back(parseStmt());
+      stmts_pattern.push_back(parseStmt());
     }
-    auto rr = L.cur().range;
     L.expect(TK_REPLACEMENT);
     L.expect('{');
     TreeList stmts_repl;
@@ -372,10 +371,10 @@ struct Parser {
       stmts_repl.push_back(parseStmt());
     }
     L.expect('}');
-    auto stmts_list = List::create(r, std::move(stmts));
-    auto stmts_list_repl = List::create(rr, std::move(stmts_repl));
-    return Tac::create(name->range(), name, paramlist, retlist, stmts_list,
-                       stmts_list_repl);
+    auto stmts_list_pattern = List::create(r, std::move(stmts_pattern));
+    auto stmts_list_repl = List::create(r, std::move(stmts_repl));
+    return Tac::create(name->range(), name, paramlist, retlist,
+                       stmts_list_pattern, stmts_list_repl);
   }
 
   Lexer L;

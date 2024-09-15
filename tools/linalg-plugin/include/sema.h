@@ -383,8 +383,7 @@ struct Sema {
   //
   // The method 'withType' is used to associate the type with a given node
   //
-  TreeRef checkFunction(TreeRef func_) {
-    auto func = Def(func_);
+  TreeRef checkFunction(lang::Def func) {
     auto params_ =
         checkList(func.params(), [&](TreeRef r) { return checkParam(r); });
 
@@ -411,6 +410,38 @@ struct Sema {
         checkList(func.returns(), [&](TreeRef r) { return checkReturn(r); });
     auto r =
         Def::create(func.range(), func.name(), params_, returns_, statements_);
+    return r;
+  }
+
+  TreeRef checkFunction(lang::Tac func) {
+    auto params_ =
+        checkList(func.params(), [&](TreeRef r) { return checkParam(r); });
+
+    for (auto r : func.returns()) {
+      if (!r.typeIsInferred()) {
+        annotated_output_types.emplace(r.ident().name(), r.tensorType());
+      }
+    }
+
+    // Everything has to be input or output. Keep track of the variables that
+    // are either input/output. We will check that the statements have variables
+    // from this list.
+    for (auto p : func.params()) {
+      nonTemporaries.insert(p.ident().name());
+      inputParameters.insert(p.ident().name());
+    }
+    for (auto r : func.returns()) {
+      nonTemporaries.insert(r.ident().name());
+    }
+
+    auto statements_pattern_ =
+        checkList(func.pattern(), [&](TreeRef r) { return checkStmt(r); });
+    auto statements_replacement_ =
+        checkList(func.replacement(), [&](TreeRef r) { return checkStmt(r); });
+    auto returns_ =
+        checkList(func.returns(), [&](TreeRef r) { return checkReturn(r); });
+    auto r = Tac::create(func.range(), func.name(), params_, returns_,
+                         statements_pattern_, statements_replacement_);
     return r;
   }
 

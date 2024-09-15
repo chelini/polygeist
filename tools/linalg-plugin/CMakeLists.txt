@@ -28,6 +28,7 @@ add_mlir_library(LinalgPlugin
   MLIRFuncDialect
   MLIRLinalgDialect
   MLIRSupport
+  MLIRTransformDialect
 
   clangAST
   clangBasic

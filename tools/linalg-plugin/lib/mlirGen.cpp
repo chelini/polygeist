@@ -6,6 +6,7 @@
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
+#include "mlir/Dialect/Transform/IR/TransformOps.h"
 #include "mlir/Dialect/Utils/StructuredOpsUtils.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinOps.h"
@@ -313,7 +314,6 @@ void MLIRGenImpl::buildTensorInitialization(const std::string tensorName,
   }
   auto fillRes = builder_.create<mlir::linalg::FillOp>(builder_.getUnknownLoc(),
                                                        constant, tensor);
-  llvm::errs() << "tensorName: " << tensorName << "\n";
   symbolTable_[tensorName] = fillRes.getResult(0);
 }
 
@@ -421,6 +421,18 @@ buildMLIRFunction(mlir::MLIRContext *context, mlir::OpBuilder &builder,
                   const std::string name, const lang::Def &tc) {
   MLIRGenImpl generator(context, builder, symbolTable);
   return generator.buildFunction(name, tc);
+}
+
+mlir::transform::NamedSequenceOp buildMLIRTactic(mlir::MLIRContext *context,
+                                                 mlir::OpBuilder &builder,
+                                                 const std::string name,
+                                                 const lang::Tac &tac) {
+  // void function
+  auto fnType = builder.getFunctionType({}, {});
+  return builder.create<mlir::transform::NamedSequenceOp>(
+      builder.getUnknownLoc(), builder.getStringAttr(name),
+      mlir::TypeAttr::get(fnType), /*sym_visibility=*/nullptr,
+      /*arg_attrs=*/nullptr, /*res_attrs=*/nullptr);
 }
 
 mlir::Value MLIRMappedValueExprGen::buildConstant(const lang::Const &cst) {

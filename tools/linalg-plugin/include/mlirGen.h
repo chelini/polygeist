@@ -11,6 +11,9 @@ namespace mlir {
 namespace func {
 class FuncOp;
 } // end namespace func
+namespace transform {
+class NamedSequenceOp;
+} // end namespace transform
 class MLIRContext;
 class Value;
 class Type;
@@ -140,6 +143,11 @@ mlir::func::FuncOp
 buildMLIRFunction(mlir::MLIRContext *context, mlir::OpBuilder &builder,
                   llvm::MapVector<llvm::StringRef, mlir::Value> &symbolTable,
                   const std::string name, const lang::Def &tc);
+
+mlir::transform::NamedSequenceOp buildMLIRTactic(mlir::MLIRContext *context,
+                                                 mlir::OpBuilder &builder,
+                                                 const std::string name,
+                                                 const lang::Tac &tac);
 
 } // namespace teckyl
 
