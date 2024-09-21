@@ -51,7 +51,7 @@ public:
   MLIRMappedValueExprGen(mlir::MLIRContext *context,
                          std::map<std::string, mlir::Value> &mapping,
                          mlir::Location loc, mlir::OpBuilder &builder)
-      : valMap_(mapping), loc_(loc), builder_(builder) {};
+      : context_(context), valMap_(mapping), loc_(loc), builder_(builder) {};
 
   mlir::Value buildExpr(const lang::TreeRef &t);
 
@@ -77,6 +77,7 @@ public:
   }
 
 private:
+  mlir::MLIRContext *context_;
   std::map<std::string, mlir::Value> &valMap_;
   mlir::Location loc_;
   mlir::OpBuilder &builder_;
@@ -94,9 +95,9 @@ private:
 class MLIRGenImpl {
 public:
   MLIRGenImpl() = delete;
-  MLIRGenImpl(mlir::OpBuilder &builder,
+  MLIRGenImpl(mlir::MLIRContext *context, mlir::OpBuilder &builder,
               llvm::MapVector<llvm::StringRef, mlir::Value> &symbolTable)
-      : builder_(builder), symbolTable_(symbolTable) {}
+      : context_(context), builder_(builder), symbolTable_(symbolTable) {}
 
   // Build a funcOp for a definition 'def'
   mlir::func::FuncOp buildFunction(const std::string name,
@@ -139,11 +140,12 @@ private:
 };
 
 mlir::func::FuncOp
-buildMLIRFunction(mlir::OpBuilder &builder,
+buildMLIRFunction(mlir::MLIRContext *context, mlir::OpBuilder &builder,
                   llvm::MapVector<llvm::StringRef, mlir::Value> &symbolTable,
                   const std::string name, const lang::Def &tc);
 
-mlir::transform::NamedSequenceOp buildMLIRTactic(mlir::OpBuilder &builder,
+mlir::transform::NamedSequenceOp buildMLIRTactic(mlir::MLIRContext *context,
+                                                 mlir::OpBuilder &builder,
                                                  const std::string name,
                                                  const lang::Tac &tac);
 

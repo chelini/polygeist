@@ -274,7 +274,8 @@ void MLIRScanner::init(mlir::func::FuncOp function, const FunctionDecl *fd) {
         operandsMap[varDecl->getName()] = function.getArgument(i++);
 
     for (lang::TreeRef comp : comps) {
-      teckyl::MLIRGenImpl generator(builder, operandsMap);
+      teckyl::MLIRGenImpl generator(function.getContext(), builder,
+                                    operandsMap);
       resultComp = generator.buildComprehension(lang::Comprehension(comp));
     }
     builder.create<mlir::bufferization::MaterializeInDestinationOp>(
