@@ -1,6 +1,7 @@
 #ifndef TECKYL_MLIRGEN_H
 #define TECKYL_MLIRGEN_H
 
+#include "mlir/Dialect/Transform/IR/TransformOps.h"
 #include "mlir/IR/Builders.h"
 #include "parser.h"
 #include "llvm/ADT/MapVector.h"
@@ -11,9 +12,6 @@ namespace mlir {
 namespace func {
 class FuncOp;
 } // end namespace func
-namespace transform {
-class NamedSequenceOp;
-} // end namespace transform
 class MLIRContext;
 class Value;
 class Type;
@@ -144,10 +142,16 @@ buildMLIRFunction(mlir::MLIRContext *context, mlir::OpBuilder &builder,
                   llvm::MapVector<llvm::StringRef, mlir::Value> &symbolTable,
                   const std::string name, const lang::Def &tc);
 
-mlir::transform::NamedSequenceOp buildMLIRTactic(mlir::MLIRContext *context,
-                                                 mlir::OpBuilder &builder,
-                                                 const std::string name,
-                                                 const lang::Tac &tac);
+struct BuiltTactic {
+  mlir::transform::SequenceOp rootOp;
+  mlir::transform::NamedSequenceOp matcherOp;
+  mlir::transform::NamedSequenceOp replacementOp;
+};
+
+mlir::FailureOr<BuiltTactic> buildMLIRTactic(mlir::MLIRContext *context,
+                                             mlir::OpBuilder &builder,
+                                             const std::string name,
+                                             const lang::Tac &tac);
 
 } // namespace teckyl
 

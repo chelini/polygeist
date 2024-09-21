@@ -352,8 +352,12 @@ struct Tac : public TreeView {
   Ident name() { return Ident(subtree(0)); }
   ListView<Param> params() const { return ListView<Param>(subtree(1)); }
   ListView<Param> returns() const { return ListView<Param>(subtree(2)); }
-  ListView<Param> pattern() const { return ListView<Param>(subtree(3)); }
-  ListView<Param> replacement() const { return ListView<Param>(subtree(4)); }
+  ListView<Comprehension> pattern() const {
+    return ListView<Comprehension>(subtree(3));
+  }
+  ListView<Comprehension> replacement() const {
+    return ListView<Comprehension>(subtree(4));
+  }
   static TreeRef create(const SourceRange &range, TreeRef name,
                         TreeRef paramlist, TreeRef retlist,
                         TreeRef stmts_list_pattern, TreeRef stmts_list_repl) {

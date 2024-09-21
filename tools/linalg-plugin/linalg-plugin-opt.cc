@@ -1,3 +1,4 @@
+#include "mlir/Dialect/Linalg/TransformOps/DialectExtension.h"
 #include "mlir/Dialect/Transform/IR/TransformOps.h"
 #include "mlir/IR/Dialect.h"
 #include "mlir/IR/MLIRContext.h"
@@ -106,8 +107,8 @@ static void dumpAST(const std::map<std::string, lang::Def> &tcs,
 static void dumpMlir(const std::map<std::string, lang::Def> &tcs,
                      const std::map<std::string, lang::Tac> &tacs) {
   mlir::DialectRegistry registry;
+  mlir::linalg::registerTransformDialectExtension(registry);
   mlir::MLIRContext context(registry);
-  // register linalg and tensor.
   context.getOrLoadDialect<mlir::linalg::LinalgDialect>();
   context.getOrLoadDialect<mlir::arith::ArithDialect>();
   context.getOrLoadDialect<mlir::func::FuncDialect>();
@@ -147,9 +148,13 @@ static void dumpMlir(const std::map<std::string, lang::Def> &tcs,
           mlir::transform::TransformDialect::kWithNamedSequenceAttrName));
   for (auto &tac : tacs) {
     lang::TreeRef checked = sema.checkFunction(lang::Tac(tac.second));
-    mlir::transform::NamedSequenceOp tOp = teckyl::buildMLIRTactic(
+    mlir::FailureOr<teckyl::BuiltTactic> tOp = teckyl::buildMLIRTactic(
         &context, builder, tac.first, lang::Tac(checked));
-    moduleTransform->push_back(tOp);
+    if (mlir::failed(tOp))
+      llvm::report_fatal_error("failed to generate tactis\n");
+    moduleTransform->push_back(tOp->matcherOp);
+    moduleTransform->push_back(tOp->replacementOp);
+    moduleTransform->push_back(tOp->rootOp);
   }
   module->push_back(*moduleTransform);
 

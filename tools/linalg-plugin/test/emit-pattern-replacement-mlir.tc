@@ -13,7 +13,7 @@ def_t canonicalizer(float32(M, N) In) -> (float32(N, M) Temp, float32(M, N) C) {
 
 __end_tc
 
-
 // CHECK: module {
 // CHECK-NEXT: module @transform.with_named_sequence attributes 
 // CHECK-SAME:  {transform.with_named_sequence = "transform.with_named_sequence"}
+// CHECK-COUNT-2: transform.match.structured

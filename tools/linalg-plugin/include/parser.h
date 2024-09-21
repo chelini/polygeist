@@ -271,13 +271,15 @@ struct Parser {
       return nullptr;
     }
   }
-  TreeRef parseStmt() {
+  TreeRef parseStmt(bool parseWhere = true) {
     auto ident = parseIdent();
     TreeRef list = parseOptionalIdentList();
     auto assign = parseAssignment();
     auto rhs = parseExp();
     TreeRef equivalent_statement = parseEquivalent();
     TreeRef range_statements = parseWhereClauses();
+    if (range_statements->trees().size() > 0 && !parseWhere)
+      L.reportError("unexpected where clause");
     TreeRef empty_reduction_variables = c(TK_LIST, ident->range(), {});
     return Comprehension::create(ident->range(), ident, list, assign, rhs,
                                  range_statements, equivalent_statement,
@@ -349,6 +351,7 @@ struct Parser {
     return Def::create(name->range(), name, paramlist, retlist, stmts_list);
   }
   TreeRef parseTactic() {
+    bool parseWhere = false;
     L.expect(TK_TAC);
     auto name = parseIdent();
     auto paramlist =
@@ -362,15 +365,17 @@ struct Parser {
     L.expect('{');
     TreeList stmts_pattern;
     while (!L.nextIf('}')) {
-      stmts_pattern.push_back(parseStmt());
+      stmts_pattern.push_back(parseStmt(parseWhere));
     }
     L.expect(TK_REPLACEMENT);
     L.expect('{');
     TreeList stmts_repl;
     while (!L.nextIf('}')) {
-      stmts_repl.push_back(parseStmt());
+      stmts_repl.push_back(parseStmt(parseWhere));
     }
     L.expect('}');
+    if (stmts_repl.size() > 1)
+      L.reportError("expect at most 1 comprehension as replacement");
     auto stmts_list_pattern = List::create(r, std::move(stmts_pattern));
     auto stmts_list_repl = List::create(r, std::move(stmts_repl));
     return Tac::create(name->range(), name, paramlist, retlist,

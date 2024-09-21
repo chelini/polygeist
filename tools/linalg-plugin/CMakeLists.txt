@@ -27,6 +27,7 @@ add_mlir_library(LinalgPlugin
   MLIRIR
   MLIRFuncDialect
   MLIRLinalgDialect
+  MLIRLinalgTransformOps
   MLIRSupport
   MLIRTransformDialect
 
