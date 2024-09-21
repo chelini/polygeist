@@ -133,7 +133,7 @@ static void dumpMlir(const std::map<std::string, lang::Def> &tcs,
   for (auto &tc : tcs) {
     lang::TreeRef checked = sema.checkFunction(lang::Def(tc.second));
     mlir::func::FuncOp f = teckyl::buildMLIRFunction(
-        &context, builder, symbolTable, tc.first, lang::Def(checked));
+        builder, symbolTable, tc.first, lang::Def(checked));
     module->push_back(f);
   }
 
@@ -147,8 +147,8 @@ static void dumpMlir(const std::map<std::string, lang::Def> &tcs,
           mlir::transform::TransformDialect::kWithNamedSequenceAttrName));
   for (auto &tac : tacs) {
     lang::TreeRef checked = sema.checkFunction(lang::Tac(tac.second));
-    mlir::transform::NamedSequenceOp tOp = teckyl::buildMLIRTactic(
-        &context, builder, tac.first, lang::Tac(checked));
+    mlir::transform::NamedSequenceOp tOp =
+        teckyl::buildMLIRTactic(builder, tac.first, lang::Tac(checked));
     moduleTransform->push_back(tOp);
   }
   module->push_back(*moduleTransform);

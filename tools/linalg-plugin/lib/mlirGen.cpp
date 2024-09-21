@@ -416,15 +416,14 @@ mlir::func::FuncOp MLIRGenImpl::buildFunction(const std::string name,
 }
 
 mlir::func::FuncOp
-buildMLIRFunction(mlir::MLIRContext *context, mlir::OpBuilder &builder,
+buildMLIRFunction(mlir::OpBuilder &builder,
                   llvm::MapVector<llvm::StringRef, mlir::Value> &symbolTable,
                   const std::string name, const lang::Def &tc) {
-  MLIRGenImpl generator(context, builder, symbolTable);
+  MLIRGenImpl generator(builder, symbolTable);
   return generator.buildFunction(name, tc);
 }
 
-mlir::transform::NamedSequenceOp buildMLIRTactic(mlir::MLIRContext *context,
-                                                 mlir::OpBuilder &builder,
+mlir::transform::NamedSequenceOp buildMLIRTactic(mlir::OpBuilder &builder,
                                                  const std::string name,
                                                  const lang::Tac &tac) {
   // void function
